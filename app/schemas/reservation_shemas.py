@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
+from app.schemas.user_schemas import UserBase
 
 class ReservationBase(BaseModel):
     provider_id: int
@@ -18,6 +19,21 @@ class ReservationResponse(ReservationBase):
     id: int
     client_id: int
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProviderDashboardResponse(BaseModel):
+    id: int
+    reservation_time: datetime
+    reservation_type: str
+    duration_minutes: int
+    
+    # Štai čia įvyksta magija: vietoj client_id, mes įdedame UserResponse schemą.
+    # Kadangi tavo modeliuose yra ryšys `client = relationship("User")`, 
+    # SQLAlchemy fone pati ištrauks kliento vardą ir el. paštą!
+    client: UserBase 
 
     class Config:
         from_attributes = True
