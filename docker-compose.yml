@@ -9,12 +9,24 @@ services:
       - .env
 
     ports:
-      - "${MYSQL_PORT}:3306"
+      - "${DB_PORT}:3306"
 
     volumes:
       - mysql_data:/var/lib/mysql
       - ./database/01_schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
       - ./database/02_seed.sql:/docker-entrypoint-initdb.d/02_seed.sql
+
+  # --- ČIA PRIDEDAME FASTAPI (Tavo esama MySQL dalis viršuje liko visiškai nepakeista) ---
+  web:
+    build: .
+    container_name: fastapi_app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - mysql
 
 volumes:
   mysql_data:

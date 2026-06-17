@@ -4,6 +4,7 @@ import jwt
 from dotenv import load_dotenv
 from fastapi import HTTPException, status, Depends
 from app.models.models import User
+from app.schemas.user_schemas import UserCreate
 from app.database import get_db
 from sqlalchemy.orm import Session
 from passlib. context import CryptContext

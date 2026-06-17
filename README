@@ -1,0 +1,20 @@
+# 🚀 Reservation Management System API
+
+This project is built using **FastAPI**, **SQLAlchemy (MySQL)**, and **JWT Authentication**. It features a full layered architecture (Routers, Services, Models, Schemas) along with dynamic filtering, pagination, and automated integration tests.
+
+---
+
+## 🛠️ How to Run the System (The Easiest Way)
+
+The entire infrastructure (FastAPI application + MySQL database) is fully containerized. You do **not** need to install Python, virtual environments, or MySQL manually.
+
+### Prerequisites
+- Installed **Docker** and **Docker Compose**
+
+### Quick Start Instructions
+
+1. **Clone the repository** and navigate to the project directory.
+2. Ensure you have a `.env` file in the root folder (configured with database credentials and JWT parameters).
+3. Open your terminal and run the following command to build and launch everything:
+   ```bash
+   docker compose up --build

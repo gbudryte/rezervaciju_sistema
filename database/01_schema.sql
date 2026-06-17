@@ -5,14 +5,14 @@ CREATE TABLE users(
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('CLIENT', 'PROVIDER', 'ADMIN') NOT NULL DEFAULT 'CLIENT'
-)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE providers(
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     location VARCHAR(200),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE reservations(
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -24,6 +24,6 @@ CREATE TABLE reservations(
     duration_minutes INT NOT NULL,
     FOREIGN KEY (client_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (provider_id) REFERENCES providers(id) ON DELETE CASCADE
-)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 

@@ -3,9 +3,17 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
-from app.schemas.reservation_schemas import ReservationCreate, ReservationResponse, ProviderDashboardResponse
+from app.schemas.reservation_schemas import (
+    ReservationCreate,
+    ReservationResponse,
+    ProviderDashboardResponse,
+    AdminDashboardResponse,
+    ReservationUpdate
+)
 from app.services.reservation_service import ReservationService
 from app.models.models import UserRole, Provider
+from app.services.auth_service import AuthService
+from app.models.models import User, Reservation
 
 
 router = APIRouter(prefix="/reservations", tags=["Reservations"])
@@ -46,6 +54,28 @@ def get_all_reservations(
     )
     return reservations
 
+@router.get("/my-reservations", response_model=List[ReservationResponse])
+def get_my_reservations(
+    # Ši eilutė reikalauja JWT žetono ir automatiškai ištraukia prisijungusį vartotoją!
+    current_user: User = Depends(AuthService.get_current_user),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    Grąžina rezervacijas, skirtas TIK šiuo metu prisijungusiam vartotojui.
+    """
+    # Kadangi current_user jau yra ištrauktas iš žetono, mes saugiai žinome jo ID:
+    filters = {"client_id": current_user.id}
+    
+    # Iškviečiame mūsų pažangų filtravimo servisą
+    reservations = ReservationService.get_reservations_advanced(
+        db, 
+        skip=skip, 
+        limit=limit, 
+        **filters
+    )
+    return reservations
 
 @router.get("/provider-reservations", response_model=List[ProviderDashboardResponse])
 def get_provider_dashboard(
@@ -75,3 +105,70 @@ def get_provider_dashboard(
 
     reservations = ReservationService.get_reservations_advanced(db, skip=skip, limit=limit, **filters)
     return reservations
+
+@router.get("/admin/reservations", response_model=List[AdminDashboardResponse])
+def get_admin_dashboard(
+    current_user: User = Depends(AuthService.get_current_user),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    Grąžina VISAS sistemos rezervacijas. 
+    Prieinama TIK vartotojams su ADMIN role.
+    """
+    # 1. SAUGUMO PATIKRINIMAS: Ar vartotojas yra administratorius?
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Šis puslapis prieinamas tik sistemos administratoriams."
+        )
+
+    # 2. Kadangi kwargs dėžutė tuščia, šis metodas tiesiog padarys SELECT * FROM reservations
+    reservations = ReservationService.get_reservations_advanced(
+        db, 
+        skip=skip, 
+        limit=limit
+        # Čia jokių filtrų (kaip client_id ar provider_id) nededame!
+    )
+    return reservations
+
+@router.put("/{reservation_id}", response_model=ReservationResponse)
+def update_existing_reservation(
+    reservation_id: int,
+    payload: ReservationUpdate,
+    current_user: User = Depends(AuthService.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Rezervacijos redagavimas (su teisių patikra)."""
+    db_res = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not db_res:
+        raise HTTPException(status_code=404, detail="Rezervacija nerasta.")
+
+    # TEISIŲ PATIKRA (Autorizacija):
+    # Leidžiame redaguoti tik jei vartotojas yra Adminas ARBA tai yra paties kliento rezervacija
+    if current_user.role != UserRole.ADMIN and db_res.client_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Neturite teisės redaguoti šios rezervacijos.")
+
+    updated_res = ReservationService.update_reservation(db, reservation_id, payload)
+    return updated_res
+
+
+@router.delete("/{reservation_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_existing_reservation(
+    reservation_id: int,
+    current_user: User = Depends(AuthService.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Rezervacijos šalinimas (su teisių patikra)."""
+    db_res = db.query(Reservation).filter(Reservation.id == reservation_id).first()
+    if not db_res:
+        raise HTTPException(status_code=404, detail="Rezervacija nerasta.")
+
+    # TEISIŲ PATIKRA (Autorizacija):
+    # Leidžiame trinti Adminui ARBA pačiam klientui
+    if current_user.role != UserRole.ADMIN and db_res.client_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Neturite teisės ištrinti šios rezervacijos.")
+
+    ReservationService.delete_reservation(db, reservation_id)
+    return None # HTTP 204 reikalauja grąžinti tuščią turinį
